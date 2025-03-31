@@ -1,0 +1,12 @@
+#define BUZZER_PIN 3  // Connect buzzer to pin 3
+
+void setup() {
+  pinMode(BUZZER_PIN, OUTPUT);
+}
+
+void loop() {
+  tone(BUZZER_PIN, 500);  // Play 1000Hz tone
+  delay(500);              // Wait 500ms
+  noTone(BUZZER_PIN);      // Stop sound
+  delay(500);              // Wait 500ms
+}
