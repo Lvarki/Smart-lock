@@ -20,13 +20,13 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 // 🎛 Adjustable Variables
 #define RELAY_PIN 5        // Relay connected to pin 5
 #define RELAY_TIME 3000    // Time relay stays ON (milliseconds)
-#define SCROLL_SPEED 4     // Scrolling text speed (higher = faster)
-#define FRAME_RATE 10      // OLED refresh rate (milliseconds)
+#define SCROLL_SPEED 8    // Scrolling text speed (higher = faster)
+#define FRAME_RATE 0      // OLED refresh rate (milliseconds)
 
 // Allowed RFID UID (Replace with your actual card UID)
 byte allowedUID1[] = {0xBE, 0x7A, 0xF8, 0x03};  
 
-String welcomeMessage = "Welcome! Scan your card.";
+String welcomeMessage = "Welcome! Please scan your card to unlock.";
 String accessDeniedMessage = "Access Denied!";
 int textWidth;
 int x = SCREEN_WIDTH;
