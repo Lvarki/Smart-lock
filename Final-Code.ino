@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <MFRC522.h>
 
+#define BUZZER_PIN 2  // Connect buzzer to pin 3
 #define SS_PIN 10
 #define RST_PIN 7
 MFRC522 rfid(SS_PIN, RST_PIN); // RFID instance
@@ -52,13 +53,16 @@ void setup() {
   // Relay INIT
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, LOW);  // Ensure relay starts off
+
+  //Buzzer INIT
+  pinMode(BUZZER_PIN, OUTPUT);
 }
 
 void loop() {
   static unsigned long lastUpdateTime = 0;
   unsigned long currentTime = millis();
 
-  // OLED SCROLLING MESSAGE
+  // OLED SCROLLING MESSAGE (Welcome message)
   if (currentTime - lastUpdateTime >= FRAME_RATE) {
     display.clearDisplay();
     display.fillRect(0, 8, SCREEN_WIDTH, 16, WHITE);
@@ -87,7 +91,7 @@ void loop() {
     Serial.println("🔒 Door lock process completed.");
   } else {
     Serial.println("❌ Unauthorized card. Access Denied.");
-    scrollMessage(accessDeniedMessage);
+    displayAccessDenied(); // Show the Access Denied message statically
   }
 
   // 📡 Ensure RFID module doesn't get stuck
@@ -97,27 +101,83 @@ void loop() {
   Serial.println("RFID scan cycle complete. Waiting for new card...");
 }
 
+
 // 🚪 Unlocks the door by activating the relay and scrolling "Door Unlocked!"
 void unlockDoor() {
   Serial.println("🚪 Unlocking door...");
   digitalWrite(RELAY_PIN, HIGH);  // Turn relay ON
-  unsigned long unlockStartTime = millis();
-  int msgWidth = 12 * 14;  // Estimated message width
+
+  unsigned long startTime = millis();
+  unsigned long scrollTimer = millis();
+  unsigned long buzzerTimer = millis();
   int xScroll = SCREEN_WIDTH;
+  int msgWidth = 12 * 14;
+  int buzzerStage = 0;
+  bool buzzerOn = false;
 
-  while (millis() - unlockStartTime < RELAY_TIME) {
-    display.clearDisplay();
-    display.setTextColor(WHITE);
-    display.setCursor(xScroll, 8);
-    display.print("Door Unlocked!");
-    display.display();
+  while (millis() - startTime < RELAY_TIME) {
+    // 📺 OLED Scrolling (every 10ms)
+    if (millis() - scrollTimer >= 10) {
+      // Clear the screen
+  display.clearDisplay();
 
-    xScroll -= SCROLL_SPEED;
-    if (xScroll < -msgWidth) xScroll = SCREEN_WIDTH;
+  // Set text color to white
+  display.setTextColor(WHITE);
 
-    delay(10);
+  // Display "ACCESS" at the top
+  display.setCursor(0, 8);
+  display.print("Door");
+
+  // Display "DENIED" at the bottom
+  display.setCursor(0, SCREEN_HEIGHT - 16);  // Adjust the cursor to the bottom
+  display.print("Unlocked!");
+
+  // Show the message
+  display.display();
+
+      xScroll -= SCROLL_SPEED;
+      if (xScroll < -msgWidth) xScroll = SCREEN_WIDTH;
+
+      scrollTimer = millis();
+    }
+
+    // 🔔 Buzzer sequence (change tone every 500ms)
+    if (millis() - buzzerTimer >= 500) {
+      switch (buzzerStage) {
+        case 0:
+          tone(BUZZER_PIN, 1000);
+          buzzerOn = true;
+          break;
+        case 1:
+          noTone(BUZZER_PIN);
+          buzzerOn = false;
+          break;
+        case 2:
+          tone(BUZZER_PIN, 500);
+          buzzerOn = true;
+          break;
+        case 3:
+          noTone(BUZZER_PIN);
+          buzzerOn = false;
+          break;
+        case 4:
+          tone(BUZZER_PIN, 250);
+          buzzerOn = true;
+          break;
+        case 5:
+          noTone(BUZZER_PIN);
+          buzzerOn = false;
+          break;
+        default:
+          buzzerStage = -1; // reset
+          break;
+      }
+      buzzerStage++;
+      buzzerTimer = millis();
+    }
   }
 
+  noTone(BUZZER_PIN);             // Make sure buzzer is off
   digitalWrite(RELAY_PIN, LOW);   // Turn relay OFF
   Serial.println("🔒 Door locked again.");
 }
@@ -127,21 +187,37 @@ bool checkUID(byte *scannedUID, byte uidSize) {
   return (uidSize == sizeof(allowedUID1) && memcmp(scannedUID, allowedUID1, uidSize) == 0);
 }
 
-// ⛔ Scrolls "Access Denied" across OLED screen
-void scrollMessage(String message) {
-  int msgWidth = message.length() * 12;
-  int xScroll = SCREEN_WIDTH;
+// ⛔ Display "ACCESS" at the top and "DENIED" at the bottom with high-low buzzer beeps
+void displayAccessDenied() {
+  // Clear the screen
+  display.clearDisplay();
 
-  while (xScroll > -msgWidth) {
-    display.clearDisplay();
-    display.setTextColor(WHITE);
-    display.setCursor(xScroll, 8);
-    display.print(message);
-    display.display();
-    xScroll -= 3;
-    delay(10);
-  }
+  // Set text color to white
+  display.setTextColor(WHITE);
+
+  // Display "ACCESS" at the top
+  display.setCursor(0, 8);
+  display.print("Access");
+
+  // Display "DENIED" at the bottom
+  display.setCursor(0, SCREEN_HEIGHT - 16);  // Adjust the cursor to the bottom
+  display.print("Denied");
+
+  // Show the message
+  display.display();
+
+  // 🔔 Play buzzer only once
+  tone(BUZZER_PIN, 1500);   // High-pitched tone
+  delay(150);
+  noTone(BUZZER_PIN);
+  delay(100);
+  tone(BUZZER_PIN, 600);    // Low-pitched tone
+  delay(200);
+  noTone(BUZZER_PIN);
 }
+
+
+
 
 // 🔢 Print RFID UID in hex format
 void printHex(byte *buffer, byte bufferSize) {
